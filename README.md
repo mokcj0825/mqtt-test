@@ -1,214 +1,362 @@
-# MQTT Test Project
+To create an MQTT controller within the Laravel framework, you will need to follow these steps to set up and integrate MQTT functionalities:
 
-This project is a Laravel-based application designed to publish and subscribe to messages using MQTT. It showcases how to integrate MQTT messaging into a web application environment.
+### 1. Install Required Packages
 
-## Project Overview
-
-The `mqtt-test` application is configured to send a timestamp via MQTT every time a specific endpoint is triggered. This can be used to demonstrate real-time data handling and communication between different parts of a distributed system.
-
-## Prerequisites
-
-Before you can run this project, you'll need the following installed:
-
-- PHP 7.4 or higher
-
-- Composer
-
-- Laravel 8.x
-
-- MQTT Broker (e.g., Mosquitto)
-
-## Installation
-
-Follow these steps to get your development environment set up:
-
-1\. Clone the repository:
+You will need to install an MQTT library that is compatible with Laravel. One of the commonly used libraries is `php-mqtt/client`. Install it using Composer:
 
 ```bash
 
-git clone https://github.com/your-username/mqtt-test.git
-
-cd mqtt-test
+composer require php-mqtt/client
 
 ```
 
-2\. Install dependencies:
+### 2. Configure MQTT
+
+Create a configuration file for MQTT in your Laravel project. You can place this under `config/mqtt.php`. Add the necessary configuration parameters like host, port, client id, and credentials:
+
+```php
+
+return [
+
+    'host' => 'your-mqtt-broker-host',
+
+    'port' => 1883, // default port for MQTT
+
+    'client_id' => 'laravel_mqtt_client',
+
+    'username' => 'your_username', // optional
+
+    'password' => 'your_password', // optional
+
+    'certfile' => 'path_to_certificate_file', // optional for SSL connection
+
+    'local_cert' => 'path_to_local_cert_file', // optional for SSL connection
+
+    'local_key'  => 'path_to_local_key_file', // optional for SSL connection
+
+    'logger' => env('MQTT_LOGGER', true), // Optional: Enable logging for debugging purposes
+
+];
+
+```
+
+### 3. Create the MQTT Service
+
+Create a service class that handles the MQTT connection and communication. This class will utilize the `php-mqtt/client` library to publish and subscribe to topics.
+
+```php
+
+namespace App\Services;
+
+use PhpMqtt\Client\MQTTClient;
+
+class MqttService
+
+{
+
+    protected $mqttClient;
+
+    public function __construct()
+
+    {
+
+        $this->mqttClient = new MQTTClient(
+
+            config('mqtt.host'),
+
+            config('mqtt.port'),
+
+            config('mqtt.client_id')
+
+        );
+
+        if (config('mqtt.username') && config('mqtt.password')) {
+
+            $this->mqttClient->setAuthentication(config('mqtt.username'), config('mqtt.password'));
+
+        }
+
+        if (config('mqtt.certfile')) {
+
+            $this->mqttClient->setSecureConnection(config('mqtt.certfile'));
+
+        }
+
+        $this->mqttClient->connect();
+
+    }
+
+    public function publish($topic, $message)
+
+    {
+
+        $this->mqttClient->publish($topic, $message, 0);
+
+    }
+
+    public function subscribe($topic, $callback)
+
+    {
+
+        $this->mqttClient->subscribe($topic, $callback, 0);
+
+        while ($this->mqttClient->wait_for_packet()) {
+
+            $this->mqttClient->loop();
+
+        }
+
+    }
+
+    public function __destruct()
+
+    {
+
+        $this->mqttClient->disconnect();
+
+    }
+
+}
+
+```
+
+### 4. Create MQTT Controller
+
+Generate a new controller that will handle MQTT requests:
 
 ```bash
 
-composer install
+php artisan make:controller MqttController
 
 ```
 
-3\. Set up the environment file:
+Inside the controller, utilize the `MqttService` to publish and subscribe to MQTT topics.
 
-Copy the `.env.example` file to `.env` and adjust the database and MQTT broker settings accordingly.
+```php
+
+namespace App\Http\Controllers;
+
+use App\Services\MqttService;
+
+use Illuminate\Http\Request;
+
+class MqttController extends Controller
+
+{
+
+    protected $mqttService;
+
+    public function __construct(MqttService $mqttService)
+
+    {
+
+        $this->mqttService = $mqttService;
+
+    }
+
+    public function publish(Request $request)
+
+    {
+
+        $topic = $request->input('topic');
+
+        $message = $request->input('message');
+
+        $this->mqttService->publish($topic, $message);
+
+        return response()->json(['success' => true]);
+
+    }
+
+    public function subscribe($topic)
+
+    {
+
+        $callback = function ($topic, $message) {
+
+            echo sprintf("Received message on topic [%s]: %s\n", $topic, $message);
+
+        };
+
+        $this->mqttService->subscribe($topic, $callback);
+
+    }
+
+}
+
+```
+
+### 5. Testing
+
+Test your MQTT controller methods by invoking them through routes or using a tool like Postman. Make sure your MQTT broker is accessible and configured properly.
+
+### 6. Error Handling
+
+Implement error handling and logging within your MQTT service to handle and debug connection issues or data errors efficiently.
+
+With this setup, you have a basic MQTT controller in Laravel that can publish to and subscribe from MQTT topics. Adjust the configurations and functionalities based on your specific requirements and the capabilities of your MQTT broker.
+
+# Setup MQTT Controller in Laravel
+To create an MQTT controller within the Laravel framework, you will need to follow these steps to set up and integrate MQTT functionalities:
+
+
+### 1. Install Required Packages
+
+
+You will need to install an MQTT library that is compatible with Laravel. One of the commonly used libraries is `php-mqtt/client`. Install it using Composer:
+
 
 ```bash
-
-cp .env.example .env
-
+composer require php-mqtt/client
 ```
 
-Update these lines in your `.env` file:
 
-```plaintext
+### 2. Configure MQTT
 
-MQTT_HOST=localhost
 
-MQTT_PORT=1883
+Create a configuration file for MQTT in your Laravel project. You can place this under `config/mqtt.php`. Add the necessary configuration parameters like host, port, client id, and credentials:
 
+
+```php
+return [
+    'host' => 'your-mqtt-broker-host',
+    'port' => 1883, // default port for MQTT
+    'client_id' => 'laravel_mqtt_client',
+    'username' => 'your_username', // optional
+    'password' => 'your_password', // optional
+    'certfile' => 'path_to_certificate_file', // optional for SSL connection
+    'local_cert' => 'path_to_local_cert_file', // optional for SSL connection
+    'local_key'  => 'path_to_local_key_file', // optional for SSL connection
+    'logger' => env('MQTT_LOGGER', true), // Optional: Enable logging for debugging purposes
+];
 ```
 
-4\. Generate an application key:
+
+### 3. Create the MQTT Service
+
+
+Create a service class that handles the MQTT connection and communication. This class will utilize the `php-mqtt/client` library to publish and subscribe to topics.
+
+
+```php
+namespace App\Services;
+
+
+use PhpMqtt\Client\MQTTClient;
+
+
+class MqttService
+{
+    protected $mqttClient;
+
+
+    public function __construct()
+    {
+        $this->mqttClient = new MQTTClient(
+            config('mqtt.host'),
+            config('mqtt.port'),
+            config('mqtt.client_id')
+        );
+        if (config('mqtt.username') && config('mqtt.password')) {
+            $this->mqttClient->setAuthentication(config('mqtt.username'), config('mqtt.password'));
+        }
+        if (config('mqtt.certfile')) {
+            $this->mqttClient->setSecureConnection(config('mqtt.certfile'));
+        }
+        $this->mqttClient->connect();
+    }
+
+
+    public function publish($topic, $message)
+    {
+        $this->mqttClient->publish($topic, $message, 0);
+    }
+
+
+    public function subscribe($topic, $callback)
+    {
+        $this->mqttClient->subscribe($topic, $callback, 0);
+        while ($this->mqttClient->wait_for_packet()) {
+            $this->mqttClient->loop();
+        }
+    }
+
+
+    public function __destruct()
+    {
+        $this->mqttClient->disconnect();
+    }
+}
+```
+
+
+### 4. Create MQTT Controller
+
+
+Generate a new controller that will handle MQTT requests:
+
 
 ```bash
-
-php artisan key:generate
-
+php artisan make:controller MqttController
 ```
 
-5\. Run migrations (if applicable):
 
-```bash
+Inside the controller, utilize the `MqttService` to publish and subscribe to MQTT topics.
 
-php artisan migrate
 
+```php
+namespace App\Http\Controllers;
+
+
+use App\Services\MqttService;
+use Illuminate\Http\Request;
+
+
+class MqttController extends Controller
+{
+    protected $mqttService;
+
+
+    public function __construct(MqttService $mqttService)
+    {
+        $this->mqttService = $mqttService;
+    }
+
+
+    public function publish(Request $request)
+    {
+        $topic = $request->input('topic');
+        $message = $request->input('message');
+        $this->mqttService->publish($topic, $message);
+
+
+        return response()->json(['success' => true]);
+    }
+
+
+    public function subscribe($topic)
+    {
+        $callback = function ($topic, $message) {
+            echo sprintf("Received message on topic [%s]: %s\n", $topic, $message);
+        };
+
+
+        $this->mqttService->subscribe($topic, $callback);
+    }
+}
 ```
 
-6\. Start the Laravel development server:
 
-```bash
+### 5. Testing
 
-php artisan serve
 
-```
+Test your MQTT controller methods by invoking them through routes or using a tool like Postman. Make sure your MQTT broker is accessible and configured properly.
 
-## Usage
 
-To publish a timestamp message to the MQTT broker:
+### 6. Error Handling
 
-1\. Navigate to `http://localhost:8000/publish-timestamp` in your web browser or use a tool like curl to trigger the endpoint:
 
-```bash
+Implement error handling and logging within your MQTT service to handle and debug connection issues or data errors efficiently.
 
-curl http://localhost:8000/publish-timestamp
 
-```
-
-2\. Check your MQTT client to see the message that was published.
-
-## Setting Up Mosquitto MQTT Broker
-
-Mosquitto is a lightweight and open-source MQTT broker that is easy to install and configure. Follow these steps to set up Mosquitto on your system and integrate it with the `mqtt-test` Laravel application.
-
-### Installation
-
-#### On Ubuntu
-
-```bash
-
-sudo apt-get update
-
-sudo apt-get install mosquitto mosquitto-clients
-
-```
-
-#### On Windows
-
-Download the Mosquitto broker from mosquitto.org and follow the installation instructions provided on the website.
-
-#### On macOS
-
-You can install Mosquitto using Homebrew:
-
-```bash
-
-brew install mosquitto
-
-```
-
-### Configuration
-
-After installing Mosquitto, you will need to configure it to work with your `mqtt-test` application.
-
-1\. Edit the Mosquitto Configuration File:
-
-Typically, the configuration file is located at `/etc/mosquitto/mosquitto.conf` on Linux and at `/usr/local/etc/mosquitto/mosquitto.conf` on macOS.
-
-Add the following lines to enable basic communication:
-
-```plaintext
-
-listener 1883
-
-allow_anonymous true
-
-```
-
-This configuration sets Mosquitto to listen on port 1883 and allows anonymous connections. For development purposes, this is usually sufficient.
-
-2\. Restart Mosquitto:
-
-After changing the configuration, restart Mosquitto to apply the changes.
-
-On Linux:
-
-```bash
-
-sudo systemctl restart mosquitto
-
-```
-
-On macOS:
-
-```bash
-
-brew services restart mosquitto
-
-```
-
-### Verifying the Installation
-
-To ensure Mosquitto is running correctly, you can subscribe to a test topic using the Mosquitto client:
-
-```bash
-
-mosquitto_sub -h localhost -t test/topic
-
-```
-
-Open another terminal and publish a message:
-
-```bash
-
-mosquitto_pub -h localhost -t test/topic -m "Hello MQTT"
-
-```
-
-If the setup is correct, you should see "Hello MQTT" appear in the terminal where you subscribed.
-
-## Integrating with Laravel
-
-Ensure that your Laravel `.env` file contains the correct settings to connect to Mosquitto:
-
-```plaintext
-
-MQTT_HOST=localhost
-
-MQTT_PORT=1883
-
-```
-
-Your Laravel application should now be able to publish messages to the Mosquitto broker.
-
-## Security Note
-
-For production environments, consider securing your MQTT communication:
-
-- Set up user authentication.
-
-- Consider using TLS/SSL for encrypted communication.
-
-Refer to the Mosquitto documentation for detailed instructions on security configurations.
-
+With this setup, you have a basic MQTT controller in Laravel that can publish to and subscribe from MQTT topics. Adjust the configurations and functionalities based on your specific requirements and the capabilities of your MQTT broker.
